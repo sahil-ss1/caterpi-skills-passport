@@ -55,13 +55,14 @@ export async function signUpAction(
   });
 
   if (error) {
-    // Supabase distinguishes "already registered" from other failures. We
-    // deliberately do not, because a different message here would confirm
-    // which addresses have accounts.
-    return {
-      error: 'We could not create that account. Check the details and try again.',
-      notice: null,
-    };
+    // Logged in full server-side. Without this the generic message below is
+    // all anyone sees, including whoever is debugging it.
+    console.error(
+      '[action] signUpAction failed',
+      JSON.stringify({ code: error.code, status: error.status, message: error.message }),
+    );
+
+    return { error: signUpMessage(error), notice: null };
   }
 
   // With email confirmation switched on there is no session yet, and the user
@@ -74,4 +75,32 @@ export async function signUpAction(
   }
 
   redirect('/dashboard?welcome=1');
+}
+
+/**
+ * Turns a Supabase auth error into something the person can act on.
+ *
+ * The one case that stays deliberately vague is an address that is already
+ * registered: saying so would let anyone test which emails have accounts.
+ * Everything else is a problem the user or the operator can actually fix, and
+ * hiding it just makes the form feel broken.
+ */
+function signUpMessage(error: { code?: string; status?: number; message: string }): string {
+  // Matched on status as well as code: the rate limit is the one an operator
+  // is most likely to hit, and it arrives as a plain 429 if the client did
+  // not populate `code`.
+  if (error.status === 429 || error.code?.startsWith('over_')) {
+    return 'Too many sign-up attempts against this project right now. Confirmation emails are rate limited — wait a few minutes, or turn off "Confirm email" in Supabase.';
+  }
+
+  switch (error.code) {
+    case 'email_address_invalid':
+      return 'That email address was rejected. Use a real, deliverable domain — reserved ones such as example.com and .test are not accepted.';
+    case 'weak_password':
+      return 'Choose a stronger password.';
+    case 'signup_disabled':
+      return 'Sign-ups are currently disabled for this project.';
+    default:
+      return 'We could not create that account. Check the details and try again.';
+  }
 }
