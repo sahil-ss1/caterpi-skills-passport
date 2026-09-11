@@ -29,17 +29,31 @@ Apply the schema and fixtures to your Supabase project:
 supabase login
 supabase link --project-ref <your-project-ref>
 supabase db reset --linked     # runs migrations, then supabase/seed.sql
+npm run seed:evidence          # uploads evidence files to Storage
 ```
+
+`seed:evidence` is a separate step because Storage objects cannot be created
+from SQL. It signs in as each seeded talent and uploads under that talent's
+own path, so it needs no privileged key — and the fact that it succeeds is
+itself a check that the storage policy permits an owner to write
+`<talent_id>/…`. One file is skipped deliberately so the missing-evidence
+state stays reachable in the UI.
 
 Then:
 
 ```bash
-npm run dev        # http://localhost:3000
-npm test           # vitest
-npm run typecheck  # tsc --noEmit
-npm run lint       # eslint
-npm run build      # next build
+npm run dev            # http://localhost:3000
+npm test               # vitest — 27 unit tests
+npm run verify:access  # asserts the access boundaries against the live project
+npm run typecheck      # tsc --noEmit
+npm run lint           # eslint
+npm run build          # next build
 ```
+
+`verify:access` covers what unit tests cannot: that anonymous callers are
+denied the base tables, that a private passport returns nothing, that the
+public view exposes no private columns, and that one talent cannot read or
+download another's records.
 
 ### Test accounts
 
