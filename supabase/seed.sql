@@ -72,6 +72,9 @@ from auth.users u;
 -- Profiles
 -- ---------------------------------------------------------------------------
 
+-- The `on_auth_user_created` trigger has already created a row for each user
+-- above with a generated username, so these are upserts that overwrite the
+-- generated values with the fixture ones.
 insert into public.profiles (
   id, username, full_name, current_role_title, target_role_title,
   headline, location, contact_email, is_public
@@ -95,7 +98,16 @@ values
   ('44444444-4444-4444-4444-444444444444', 'sam-whitfield', 'Sam Whitfield',
    'Social Media Lead', 'Brand Director',
    'Social-first brand builder.',
-   'Toronto, Canada', 'sam@caterpi.test', true);
+   'Toronto, Canada', 'sam@caterpi.test', true)
+on conflict (id) do update set
+  username           = excluded.username,
+  full_name          = excluded.full_name,
+  current_role_title = excluded.current_role_title,
+  target_role_title  = excluded.target_role_title,
+  headline           = excluded.headline,
+  location           = excluded.location,
+  contact_email      = excluded.contact_email,
+  is_public          = excluded.is_public;
 
 -- ---------------------------------------------------------------------------
 -- Capability taxonomy
@@ -270,3 +282,136 @@ join public.capabilities c on c.slug = v.slug
 join public.assessments a on a.capability_id = c.id and a.level = v.level
 join public.assessment_results ar
   on ar.assessment_id = a.id and ar.talent_id = v.talent_id;
+
+-- ---------------------------------------------------------------------------
+-- Question bank
+-- ---------------------------------------------------------------------------
+
+-- Foundation (level 1) only. Practitioner and Expert are deliberately left
+-- without questions: those levels are assessor-led in the product model, and
+-- the catalogue renders them as such. That also keeps a "not self-serve"
+-- state in the UI rather than pretending every level is a quiz.
+
+insert into public.assessment_questions (assessment_id, prompt, sort_order)
+select a.id, v.prompt, v.q
+from (values
+  ('paid-media'::text, 1::integer, 'What does CPA stand for in paid media reporting?'::text),
+  ('paid-media', 2, 'A campaign records 50,000 impressions and 1,000 clicks. What is the click-through rate?'),
+  ('paid-media', 3, 'Which metric best indicates whether a paid campaign is profitable?'),
+  ('paid-media', 4, 'What is the main purpose of a negative keyword?'),
+
+  ('seo', 1, 'What is the purpose of a robots.txt file?'),
+  ('seo', 2, 'Which tag tells search engines the preferred version of a duplicated page?'),
+  ('seo', 3, 'What does "crawl budget" describe?'),
+  ('seo', 4, 'A page returns an HTTP 301 status. What does that mean?'),
+
+  ('content-marketing', 1, 'What is a content pillar?'),
+  ('content-marketing', 2, 'Which metric best measures whether an article held attention?'),
+  ('content-marketing', 3, 'What is the main purpose of a content audit?'),
+  ('content-marketing', 4, 'What does repurposing content mean?'),
+
+  ('analytics', 1, 'How is a conversion rate calculated?'),
+  ('analytics', 2, 'What problem does attribution modelling address?'),
+  ('analytics', 3, 'What is a UTM parameter used for?'),
+  ('analytics', 4, 'Sessions rose 40% but conversions stayed flat. What is the most reasonable first check?'),
+
+  ('social-media', 1, 'What does reach measure?'),
+  ('social-media', 2, 'Why does frequency matter in a social campaign?'),
+  ('social-media', 3, 'What is social listening?'),
+  ('social-media', 4, 'Which is the strongest signal that a piece of creative is working organically?'),
+
+  ('marketing-strategy', 1, 'What does market segmentation do?'),
+  ('marketing-strategy', 2, 'What is a value proposition?'),
+  ('marketing-strategy', 3, 'What is the purpose of a positioning statement?'),
+  ('marketing-strategy', 4, 'In a go-to-market plan, what should primarily determine channel choice?')
+) as v(slug, q, prompt)
+join public.capabilities c on c.slug = v.slug
+join public.assessments a on a.capability_id = c.id and a.level = 1;
+
+-- Correct answers sit in varying positions on purpose; the option order is
+-- stable so results stay reproducible.
+insert into public.assessment_question_options (question_id, label, is_correct, sort_order)
+select q.id, v.label, v.is_correct, v.o
+from (values
+  ('paid-media'::text, 1::integer, 1::integer, 'Clicks per advert'::text, false),
+  ('paid-media', 1, 2, 'Cost per acquisition', true),
+  ('paid-media', 1, 3, 'Conversions per audience', false),
+  ('paid-media', 2, 1, '2%', true),
+  ('paid-media', 2, 2, '5%', false),
+  ('paid-media', 2, 3, '0.5%', false),
+  ('paid-media', 3, 1, 'Impression share', false),
+  ('paid-media', 3, 2, 'Average frequency', false),
+  ('paid-media', 3, 3, 'Return on ad spend', true),
+  ('paid-media', 4, 1, 'It stops ads showing against irrelevant searches', true),
+  ('paid-media', 4, 2, 'It automatically lowers the bid', false),
+  ('paid-media', 4, 3, 'It pauses the ad group overnight', false),
+
+  ('seo', 1, 1, 'It stores the page meta descriptions', false),
+  ('seo', 1, 2, 'It tells crawlers which paths they may request', true),
+  ('seo', 1, 3, 'It redirects users to the mobile site', false),
+  ('seo', 2, 1, 'rel="nofollow"', false),
+  ('seo', 2, 2, 'meta refresh', false),
+  ('seo', 2, 3, 'rel="canonical"', true),
+  ('seo', 3, 1, 'How many pages a search engine will fetch in a given period', true),
+  ('seo', 3, 2, 'The monthly cost of SEO tooling', false),
+  ('seo', 3, 3, 'The maximum number of backlinks a page may have', false),
+  ('seo', 4, 1, 'The page is temporarily unavailable', false),
+  ('seo', 4, 2, 'The page has moved permanently', true),
+  ('seo', 4, 3, 'The page is blocked by robots.txt', false),
+
+  ('content-marketing', 1, 1, 'A paid promotion budget line', false),
+  ('content-marketing', 1, 2, 'A core topic that a cluster of related content supports', true),
+  ('content-marketing', 1, 3, 'A standard display banner size', false),
+  ('content-marketing', 2, 1, 'Average engaged time', true),
+  ('content-marketing', 2, 2, 'Total word count', false),
+  ('content-marketing', 2, 3, 'Publishing frequency', false),
+  ('content-marketing', 3, 1, 'To increase posting volume', false),
+  ('content-marketing', 3, 2, 'To set the advertising budget', false),
+  ('content-marketing', 3, 3, 'To decide what to keep, update or retire', true),
+  ('content-marketing', 4, 1, 'Adapting one piece of content for another format or channel', true),
+  ('content-marketing', 4, 2, 'Deleting content that underperformed', false),
+  ('content-marketing', 4, 3, 'Buying syndication on a partner site', false),
+
+  ('analytics', 1, 1, 'Revenue divided by cost', false),
+  ('analytics', 1, 2, 'Conversions divided by sessions or users', true),
+  ('analytics', 1, 3, 'Clicks divided by impressions', false),
+  ('analytics', 2, 1, 'Removing bot traffic from reports', false),
+  ('analytics', 2, 2, 'Assigning credit for a conversion across touchpoints', true),
+  ('analytics', 2, 3, 'Reducing report loading time', false),
+  ('analytics', 3, 1, 'Encrypting user identifiers', false),
+  ('analytics', 3, 2, 'Blocking referral spam', false),
+  ('analytics', 3, 3, 'Labelling traffic sources so they can be reported on', true),
+  ('analytics', 4, 1, 'Whether the extra traffic came from a lower-intent source', true),
+  ('analytics', 4, 2, 'Whether to increase the budget immediately', false),
+  ('analytics', 4, 3, 'Whether the homepage needs redesigning', false),
+
+  ('social-media', 1, 1, 'The total number of times content was displayed', false),
+  ('social-media', 1, 2, 'The number of unique accounts that saw the content', true),
+  ('social-media', 1, 3, 'The number of followers gained', false),
+  ('social-media', 2, 1, 'It determines the required image resolution', false),
+  ('social-media', 2, 2, 'Repetition beyond a point causes fatigue and falling response', true),
+  ('social-media', 2, 3, 'It sets the posting schedule automatically', false),
+  ('social-media', 3, 1, 'Scheduling posts ahead of time', false),
+  ('social-media', 3, 2, 'Automatically replying to comments', false),
+  ('social-media', 3, 3, 'Monitoring conversations about a brand or topic', true),
+  ('social-media', 4, 1, 'A high share or save rate', true),
+  ('social-media', 4, 2, 'A large follower count', false),
+  ('social-media', 4, 3, 'A long, detailed caption', false),
+
+  ('marketing-strategy', 1, 1, 'It groups a market by shared needs or behaviour', true),
+  ('marketing-strategy', 1, 2, 'It sets the media budget for the quarter', false),
+  ('marketing-strategy', 1, 3, 'It measures the return on a campaign', false),
+  ('marketing-strategy', 2, 1, 'The price the product is sold at', false),
+  ('marketing-strategy', 2, 2, 'The specific benefit a customer gets and why it differs', true),
+  ('marketing-strategy', 2, 3, 'The advertising slogan', false),
+  ('marketing-strategy', 3, 1, 'To list the channels the campaign will use', false),
+  ('marketing-strategy', 3, 2, 'To forecast quarterly revenue', false),
+  ('marketing-strategy', 3, 3, 'To define who the product is for and how it differs', true),
+  ('marketing-strategy', 4, 1, 'Whichever channel costs the least', false),
+  ('marketing-strategy', 4, 2, 'Where the target audience already spends attention', true),
+  ('marketing-strategy', 4, 3, 'Whichever channel the team knows best', false)
+) as v(slug, q, o, label, is_correct)
+join public.capabilities c on c.slug = v.slug
+join public.assessments a on a.capability_id = c.id and a.level = 1
+join public.assessment_questions q
+  on q.assessment_id = a.id and q.sort_order = v.q;

@@ -11,7 +11,8 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "seed:evidence": "node --env-file=.env.local scripts/upload-evidence.mjs",
-    "verify:access": "node --env-file=.env.local scripts/verify-access.mjs"
+    "verify:access": "node --env-file=.env.local scripts/verify-access.mjs",
+    "verify:flow": "node --env-file=.env.local scripts/verify-flow.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",

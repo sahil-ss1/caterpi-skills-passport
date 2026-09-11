@@ -118,6 +118,77 @@ check(
   Boolean(crossTenant.error),
 );
 
+// --- the answer key and score-writing -------------------------------------
+
+const anonKey = await anon.from('assessment_question_options').select('is_correct');
+check('anon cannot read the answer key', Boolean(anonKey.error), anonKey.error?.code);
+
+const authedKey = await priya.from('assessment_question_options').select('is_correct');
+check(
+  'a signed-in talent cannot read the answer key',
+  Boolean(authedKey.error),
+  authedKey.error?.code ?? 'NO ERROR — LEAK',
+);
+
+const form = await priya.from('assessment_form_options').select('*').limit(1);
+check(
+  'the candidate-facing option view carries no is_correct column',
+  !form.error && !Object.keys(form.data?.[0] ?? {}).includes('is_correct'),
+  Object.keys(form.data?.[0] ?? {}).join(', '),
+);
+
+// The whole point of grading in Postgres: there is no client path that can
+// write a score, so a crafted request cannot award a verification.
+const forgeResult = await priya.from('assessment_results').insert({
+  id: '00000000-0000-0000-0000-0000000000ff',
+  talent_id: '11111111-1111-1111-1111-111111111111',
+  assessment_id: '00000000-0000-0000-0000-0000000000fe',
+  raw_score: 100,
+  status: 'verified',
+  submitted_at: new Date().toISOString(),
+  verified_at: new Date().toISOString(),
+  assessor_name: 'self',
+  assessor_note: null,
+  internal_notes: null,
+});
+check(
+  'a talent cannot insert their own assessment result',
+  Boolean(forgeResult.error),
+  forgeResult.error?.code ?? 'NO ERROR — LEAK',
+);
+
+// Checked two ways on purpose. Without the privilege revoke this update
+// returns no error and changes nothing, because RLS filters it to zero rows —
+// so asserting only on `error` would have passed for the wrong reason.
+const forgeCapability = await priya
+  .from('talent_capabilities')
+  .update({ status: 'verified', raw_score: 100 })
+  .eq('talent_id', '11111111-1111-1111-1111-111111111111')
+  .select('capability_id');
+
+const analyticsAfter = await priya
+  .from('my_capabilities')
+  .select('status')
+  .eq('capability_slug', 'analytics')
+  .maybeSingle();
+
+check(
+  'a talent cannot mark their own capability verified',
+  Boolean(forgeCapability.error) || forgeCapability.data?.length === 0,
+  forgeCapability.error?.code ?? `${forgeCapability.data?.length ?? 0} rows written`,
+);
+check(
+  'the capability status is genuinely unchanged',
+  analyticsAfter.data?.status === 'failed',
+  `analytics is ${analyticsAfter.data?.status}`,
+);
+
+const anonGrade = await anon.rpc('submit_assessment', {
+  p_assessment_id: '00000000-0000-0000-0000-0000000000fe',
+  p_answers: {},
+});
+check('anon cannot call the grading function', Boolean(anonGrade.error));
+
 await priya.auth.signOut();
 
 console.log(

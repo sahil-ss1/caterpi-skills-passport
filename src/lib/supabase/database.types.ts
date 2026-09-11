@@ -134,6 +134,59 @@ export type PublicPassportLevelRow = {
   status: VerificationStatusRow;
 }
 
+export type PublicPassportDirectoryRow = {
+  username: string;
+  full_name: string;
+  current_role_title: string | null;
+  target_role_title: string | null;
+  headline: string | null;
+  location: string | null;
+  avatar_url: string | null;
+  verified_capability_count: number;
+  capability_count: number;
+}
+
+export type AssessmentQuestionRow = {
+  id: string;
+  assessment_id: string;
+  prompt: string;
+  sort_order: number;
+}
+
+/**
+ * The option list as a candidate may see it.
+ *
+ * `is_correct` is absent because the underlying table grants no privileges to
+ * any client role — the answer key is not part of the API surface at all.
+ */
+export type AssessmentFormOptionRow = {
+  id: string;
+  question_id: string;
+  label: string;
+  sort_order: number;
+}
+
+export type MyAssessmentCatalogueRow = {
+  assessment_id: string;
+  assessment_title: string;
+  level: number;
+  capability_slug: string;
+  capability_name: string;
+  sort_order: number;
+  question_count: number;
+  status: VerificationStatusRow | null;
+  raw_score: number | string | null;
+  submitted_at: string | null;
+}
+
+/** Returned by the `submit_assessment` function. */
+export type SubmitAssessmentResult = {
+  result_id: string;
+  correct: number;
+  total: number;
+  raw_score: number | string;
+}
+
 /**
  * PostgREST's type helpers require `Insert` and `Update` to be object types,
  * so read-only relations declare them rather than `never`. Writes are blocked
@@ -165,15 +218,24 @@ export type Database = {
       assessments: ReadOnlyTable<AssessmentRow>;
       assessment_results: ReadOnlyTable<AssessmentResultRow>;
       evidence: ReadOnlyTable<EvidenceRow>;
+      assessment_questions: ReadOnlyTable<AssessmentQuestionRow>;
     };
     Views: {
       my_capabilities: ReadOnlyView<MyCapabilityRow>;
       my_capability_levels: ReadOnlyView<MyCapabilityLevelRow>;
+      my_assessment_catalogue: ReadOnlyView<MyAssessmentCatalogueRow>;
+      assessment_form_options: ReadOnlyView<AssessmentFormOptionRow>;
       public_passports: ReadOnlyView<PublicPassportRow>;
       public_passport_capabilities: ReadOnlyView<PublicPassportCapabilityRow>;
       public_passport_levels: ReadOnlyView<PublicPassportLevelRow>;
+      public_passport_directory: ReadOnlyView<PublicPassportDirectoryRow>;
     };
-    Functions: { [_ in never]: never };
+    Functions: {
+      submit_assessment: {
+        Args: { p_assessment_id: string; p_answers: Record<string, string> };
+        Returns: SubmitAssessmentResult;
+      };
+    };
     Enums: { verification_status: VerificationStatusRow };
     CompositeTypes: { [_ in never]: never };
   };

@@ -91,3 +91,112 @@ export function Skeleton({ className = '' }: { className?: string }) {
     />
   );
 }
+
+export type ButtonVariant = 'primary' | 'secondary' | 'ghost';
+
+const BUTTON_VARIANTS: Record<ButtonVariant, string> = {
+  primary:
+    'bg-brand-600 text-white hover:bg-brand-700 disabled:bg-ink-200 disabled:text-ink-400',
+  secondary:
+    'border border-ink-200 bg-white text-ink-900 hover:bg-ink-50 disabled:text-ink-400',
+  ghost: 'text-ink-600 hover:bg-ink-50 hover:text-ink-900',
+};
+
+/** Shared button styling, so links and buttons can look identical without
+ * duplicating the class list at every call site. */
+export function buttonClassName(
+  variant: ButtonVariant = 'primary',
+  className = '',
+): string {
+  return `inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition disabled:cursor-not-allowed ${BUTTON_VARIANTS[variant]} ${className}`;
+}
+
+/**
+ * A labelled text input.
+ *
+ * The error is wired with `aria-describedby` and `aria-invalid` rather than
+ * only coloured, so it is announced rather than merely visible.
+ */
+export function Field({
+  label,
+  name,
+  defaultValue,
+  error,
+  hint,
+  type = 'text',
+  required = false,
+  autoComplete,
+  placeholder,
+  multiline = false,
+  maxLength,
+}: {
+  label: string;
+  name: string;
+  defaultValue?: string;
+  error?: string;
+  hint?: string;
+  type?: 'text' | 'email' | 'password';
+  required?: boolean;
+  autoComplete?: string;
+  placeholder?: string;
+  multiline?: boolean;
+  maxLength?: number;
+}) {
+  const id = `field-${name}`;
+  const describedBy = [error ? `${id}-error` : null, hint ? `${id}-hint` : null]
+    .filter(Boolean)
+    .join(' ');
+
+  const shared = `w-full rounded-lg border bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 ${
+    error ? 'border-rose-300' : 'border-ink-200'
+  }`;
+
+  return (
+    <div>
+      <label htmlFor={id} className="block text-sm font-medium text-ink-900">
+        {label}
+        {required ? <span className="text-rose-600"> *</span> : null}
+      </label>
+
+      {multiline ? (
+        <textarea
+          id={id}
+          name={name}
+          rows={3}
+          defaultValue={defaultValue}
+          required={required}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy || undefined}
+          className={`mt-1.5 ${shared}`}
+        />
+      ) : (
+        <input
+          id={id}
+          name={name}
+          type={type}
+          defaultValue={defaultValue}
+          required={required}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          maxLength={maxLength}
+          aria-invalid={error ? true : undefined}
+          aria-describedby={describedBy || undefined}
+          className={`mt-1.5 ${shared}`}
+        />
+      )}
+
+      {hint ? (
+        <p id={`${id}-hint`} className="mt-1 text-xs text-ink-600">
+          {hint}
+        </p>
+      ) : null}
+      {error ? (
+        <p id={`${id}-error`} className="mt-1 text-xs font-medium text-rose-700">
+          {error}
+        </p>
+      ) : null}
+    </div>
+  );
+}

@@ -97,9 +97,9 @@ export function toDataError(
 export function unwrap<T>(
   result: { data: T | null; error: PostgrestError | null },
   operation: string,
-): T {
+): NonNullable<T> {
   if (result.error) throw toDataError(result.error, operation);
-  if (result.data === null) {
+  if (result.data === null || result.data === undefined) {
     throw new DataError('not_found', operation, `${operation} returned no data`);
   }
   return result.data;
