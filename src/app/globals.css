@@ -1,26 +1,50 @@
-@import "tailwindcss";
+@import 'tailwindcss';
+
+@theme {
+  --color-ink-50: oklch(0.985 0.002 265);
+  --color-ink-100: oklch(0.968 0.004 265);
+  --color-ink-200: oklch(0.925 0.006 265);
+  --color-ink-400: oklch(0.68 0.015 265);
+  --color-ink-600: oklch(0.51 0.022 265);
+  --color-ink-900: oklch(0.24 0.03 265);
+
+  --color-brand-50: oklch(0.97 0.02 172);
+  --color-brand-200: oklch(0.88 0.07 172);
+  --color-brand-500: oklch(0.68 0.13 172);
+  --color-brand-600: oklch(0.6 0.13 172);
+  --color-brand-700: oklch(0.5 0.11 172);
+
+  --radius-card: 0.875rem;
+}
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  color-scheme: light;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background-color: var(--color-ink-50);
+  color: var(--color-ink-900);
+}
+
+/*
+ * Visible keyboard focus everywhere. Tailwind's reset removes the UA outline,
+ * and several controls here are custom elements (the radar chart points, the
+ * visibility switch) that would otherwise be unreachable to trace visually.
+ */
+@layer base {
+  :focus-visible {
+    outline: 2px solid var(--color-brand-600);
+    outline-offset: 2px;
+  }
+}
+
+/* Respect users who have asked for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
