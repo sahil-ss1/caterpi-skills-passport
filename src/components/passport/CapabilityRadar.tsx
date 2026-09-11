@@ -5,11 +5,19 @@ export interface RadarDatum {
   readonly score: NormalizedScore | null;
 }
 
-const SIZE = 320;
+const SIZE = 400;
 const CENTER = SIZE / 2;
-const RADIUS = 104;
-const LABEL_RADIUS = RADIUS + 26;
+const RADIUS = 96;
+const LABEL_RADIUS = RADIUS + 32;
 const RINGS = [0.25, 0.5, 0.75, 1];
+
+/** Split long axis names so they stay inside the viewBox. */
+function labelLines(name: string): readonly string[] {
+  if (name.length <= 11) return [name];
+  const breakAt = name.lastIndexOf(' ');
+  if (breakAt <= 0) return [name];
+  return [name.slice(0, breakAt), name.slice(breakAt + 1)];
+}
 
 /** Start at twelve o'clock and go clockwise. */
 function angleFor(index: number, count: number): number {
@@ -125,6 +133,7 @@ export function CapabilityRadar({ data }: { data: readonly RadarDatum[] }) {
           const { x, y } = pointAt(index, data.length, LABEL_RADIUS);
           const anchor =
             Math.abs(x - CENTER) < 12 ? 'middle' : x > CENTER ? 'start' : 'end';
+          const lines = labelLines(datum.name);
           return (
             <text
               key={datum.name}
@@ -136,7 +145,21 @@ export function CapabilityRadar({ data }: { data: readonly RadarDatum[] }) {
                 datum.score === null ? 'fill-ink-400' : 'fill-ink-600'
               }`}
             >
-              {datum.name}
+              {lines.map((line, lineIndex) => (
+                <tspan
+                  key={line}
+                  x={x}
+                  dy={
+                    lines.length === 1
+                      ? 0
+                      : lineIndex === 0
+                        ? '-0.55em'
+                        : '1.2em'
+                  }
+                >
+                  {line}
+                </tspan>
+              ))}
             </text>
           );
         })}
