@@ -12,15 +12,25 @@
 -- signal, so the frontend has to cope with sparse data rather than relying on
 -- the backend to emit placeholder rows.
 
+-- Supabase ships pgcrypto in the `extensions` schema, which is not on the
+-- default search_path for this session. Without this, crypt() and gen_salt()
+-- below fail to resolve.
+set search_path = public, extensions;
+
 -- ---------------------------------------------------------------------------
 -- Auth users
 -- ---------------------------------------------------------------------------
 
--- GoTrue needs a matching auth.identities row for email sign-in to work.
+-- The empty-string token columns are deliberate. GoTrue reads them into Go
+-- strings and errors with "converting NULL to string is unsupported" at sign
+-- in if they are left null, which is the usual reason a hand-seeded user
+-- cannot log in.
 insert into auth.users (
   instance_id, id, aud, role, email, encrypted_password,
   email_confirmed_at, created_at, updated_at,
-  raw_app_meta_data, raw_user_meta_data
+  raw_app_meta_data, raw_user_meta_data,
+  confirmation_token, recovery_token,
+  email_change, email_change_token_new, email_change_token_current
 )
 select
   '00000000-0000-0000-0000-000000000000',
@@ -31,7 +41,8 @@ select
   crypt('Caterpi!2345', gen_salt('bf')),
   now(), now(), now(),
   '{"provider":"email","providers":["email"]}'::jsonb,
-  '{}'::jsonb
+  '{}'::jsonb,
+  '', '', '', '', ''
 from (values
   ('11111111-1111-1111-1111-111111111111'::uuid, 'priya@caterpi.test'),
   ('22222222-2222-2222-2222-222222222222'::uuid, 'marcus@caterpi.test'),
