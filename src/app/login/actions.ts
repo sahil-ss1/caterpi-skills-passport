@@ -2,6 +2,7 @@
 
 import { redirect } from 'next/navigation';
 
+import { safeRedirectPath } from '@/lib/navigation';
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export interface SignInState {
@@ -36,9 +37,10 @@ export async function signInAction(
     return { error: 'Those credentials were not recognised.' };
   }
 
-  const next = String(formData.get('next') ?? '/dashboard');
+  // Re-checked here rather than trusting the hidden field the page rendered:
+  // the action is its own entry point and reachable by direct POST.
   // `redirect` throws to unwind, so it must sit outside any try/catch.
-  redirect(next.startsWith('/') ? next : '/dashboard');
+  redirect(safeRedirectPath(formData.get('next')));
 }
 
 export async function signOutAction(): Promise<void> {
